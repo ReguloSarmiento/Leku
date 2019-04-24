@@ -10,9 +10,9 @@ import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.support.design.widget.FloatingActionButton
-import android.support.v7.app.AppCompatActivity
-import android.support.v7.widget.Toolbar
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Menu
@@ -28,6 +28,7 @@ import android.widget.ListView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RawRes
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.api.GoogleApiClient
@@ -43,6 +44,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.schibstedspain.leku.geocoder.GoogleGeocoderDataSource
 import com.schibstedspain.leku.geocoder.AndroidGeocoderDataSource
 import com.schibstedspain.leku.geocoder.GeocoderPresenter
@@ -59,6 +61,8 @@ import com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
 import com.google.android.gms.maps.GoogleMap.MAP_TYPE_SATELLITE
 import com.google.maps.GeoApiContext
 import com.schibstedspain.leku.geocoder.timezone.GoogleTimeZoneDataSource
+import com.schibstedspain.leku.locale.DefaultCountryLocaleRect
+import com.schibstedspain.leku.locale.SearchZoneRect
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.Locale
@@ -72,6 +76,8 @@ const val LOCATION_ADDRESS = "location_address"
 const val TRANSITION_BUNDLE = "transition_bundle"
 const val LAYOUTS_TO_HIDE = "layouts_to_hide"
 const val SEARCH_ZONE = "search_zone"
+const val SEARCH_ZONE_RECT = "search_zone_rect"
+const val SEARCH_ZONE_DEFAULT_LOCALE = "search_zone_default_locale"
 const val BACK_PRESSED_RETURN_OK = "back_pressed_return_ok"
 const val ENABLE_SATELLITE_VIEW = "enable_satellite_view"
 const val ENABLE_LOCATION_PERMISSION_REQUEST = "enable_location_permission_request"
@@ -82,6 +88,8 @@ const val LEKU_POI = "leku_poi"
 const val ENABLE_VOICE_SEARCH = "enable_voice_search"
 const val TIME_ZONE_ID = "time_zone_id"
 const val TIME_ZONE_DISPLAY_NAME = "time_zone_display_name"
+const val MAP_STYLE = "map_style"
+const val UNNAMED_ROAD_VISIBILITY = "unnamed_road_visibility"
 private const val GEOLOC_API_KEY = "geoloc_api_key"
 private const val LOCATION_KEY = "location_key"
 private const val LAST_LOCATION_QUERY = "last_location_query"
@@ -94,6 +102,7 @@ private const val DEFAULT_ZOOM = 16
 private const val WIDER_ZOOM = 6
 private const val MIN_CHARACTERS = 2
 private const val DEBOUNCE_TIME = 400
+private const val UNNAMED_ROAD = "Unnamed Road, "
 
 class LocationPickerActivity : AppCompatActivity(),
         OnMapReadyCallback,
@@ -139,12 +148,16 @@ class LocationPickerActivity : AppCompatActivity(),
     private var isGooglePlacesEnabled = false
     private var isGoogleTimeZoneEnabled = false
     private var searchZone: String? = null
+    private var searchZoneRect: SearchZoneRect? = null
+    private var isSearchZoneWithDefaultLocale = false
     private var poisList: List<LekuPoi>? = null
     private var lekuPoisMarkersMap: MutableMap<String, LekuPoi>? = null
     private var currentMarker: Marker? = null
     private var textWatcher: TextWatcher? = null
     private var apiInteractor: GoogleGeocoderDataSource? = null
     private var isVoiceSearchEnabled = true
+    private var isUnnamedRoadVisible = true
+    private var mapStyle: Int? = null
     private lateinit var toolbar: Toolbar
     private lateinit var timeZone: TimeZone
 
@@ -188,7 +201,11 @@ class LocationPickerActivity : AppCompatActivity(),
         get() {
             var locationAddress = ""
             if (street != null && !street!!.text.toString().isEmpty()) {
-                locationAddress = street!!.text.toString()
+                locationAddress = if (isUnnamedRoadVisible) {
+                    street!!.text.toString()
+                } else {
+                    street!!.text.toString().replace(UNNAMED_ROAD, "")
+                }
             }
             if (city != null && !city!!.text.toString().isEmpty()) {
                 if (!locationAddress.isEmpty()) {
@@ -226,7 +243,7 @@ class LocationPickerActivity : AppCompatActivity(),
     }
 
     private fun setUpMainVariables() {
-        val placesDataSource = GooglePlacesDataSource(Places.getGeoDataClient(this, null))
+        val placesDataSource = GooglePlacesDataSource(Places.getGeoDataClient(this))
         val geocoder = Geocoder(this, Locale.getDefault())
         apiInteractor = GoogleGeocoderDataSource(NetworkClient(), AddressBuilder())
         val geocoderRepository = GeocoderRepository(AndroidGeocoderDataSource(geocoder), apiInteractor!!)
@@ -317,7 +334,7 @@ class LocationPickerActivity : AppCompatActivity(),
                             R.drawable.leku_ic_satellite_on)
             }
         }
-        btnSatellite.visibility = if (enableSatelliteView) View.VISIBLE else View.GONE
+        if (enableSatelliteView) btnSatellite.show() else btnSatellite.hide()
     }
 
     private fun updateValuesFromBundle(savedInstanceState: Bundle?) {
@@ -431,6 +448,7 @@ class LocationPickerActivity : AppCompatActivity(),
     override fun onMapReady(googleMap: GoogleMap) {
         if (map == null) {
             map = googleMap
+            setMapStyle()
             setDefaultMapSettings()
             setCurrentPositionLocation()
             setPois()
@@ -622,6 +640,7 @@ class LocationPickerActivity : AppCompatActivity(),
 
     override fun willGetLocationInfo(latLng: LatLng) {
         changeLocationInfoLayoutVisibility(View.VISIBLE)
+        resetLocationAddress()
         setCoordinatesInfo(latLng)
     }
 
@@ -692,6 +711,12 @@ class LocationPickerActivity : AppCompatActivity(),
         if (savedInstanceState.keySet().contains(SEARCH_ZONE)) {
             searchZone = savedInstanceState.getString(SEARCH_ZONE)
         }
+        if (savedInstanceState.keySet().contains(SEARCH_ZONE_RECT)) {
+            searchZoneRect = savedInstanceState.getParcelable(SEARCH_ZONE_RECT)
+        }
+        if (savedInstanceState.keySet().contains(SEARCH_ZONE_DEFAULT_LOCALE)) {
+            isSearchZoneWithDefaultLocale = savedInstanceState.getBoolean(SEARCH_ZONE_DEFAULT_LOCALE, false)
+        }
         if (savedInstanceState.keySet().contains(ENABLE_SATELLITE_VIEW)) {
             enableSatelliteView = savedInstanceState.getBoolean(ENABLE_SATELLITE_VIEW)
         }
@@ -703,6 +728,12 @@ class LocationPickerActivity : AppCompatActivity(),
         }
         if (savedInstanceState.keySet().contains(ENABLE_VOICE_SEARCH)) {
             isVoiceSearchEnabled = savedInstanceState.getBoolean(ENABLE_VOICE_SEARCH, true)
+        }
+        if (savedInstanceState.keySet().contains(UNNAMED_ROAD_VISIBILITY)) {
+            isUnnamedRoadVisible = savedInstanceState.getBoolean(UNNAMED_ROAD_VISIBILITY, true)
+        }
+        if (savedInstanceState.keySet().contains(MAP_STYLE)) {
+            mapStyle = savedInstanceState.getInt(MAP_STYLE)
         }
     }
 
@@ -717,6 +748,12 @@ class LocationPickerActivity : AppCompatActivity(),
         }
         if (transitionBundle.keySet().contains(SEARCH_ZONE)) {
             searchZone = transitionBundle.getString(SEARCH_ZONE)
+        }
+        if (transitionBundle.keySet().contains(SEARCH_ZONE_RECT)) {
+            searchZoneRect = transitionBundle.getParcelable(SEARCH_ZONE_RECT)
+        }
+        if (transitionBundle.keySet().contains(SEARCH_ZONE_DEFAULT_LOCALE)) {
+            isSearchZoneWithDefaultLocale = transitionBundle.getBoolean(SEARCH_ZONE_DEFAULT_LOCALE, false)
         }
         if (transitionBundle.keySet().contains(BACK_PRESSED_RETURN_OK)) {
             shouldReturnOkOnBackPressed = transitionBundle.getBoolean(BACK_PRESSED_RETURN_OK)
@@ -741,6 +778,12 @@ class LocationPickerActivity : AppCompatActivity(),
         }
         if (transitionBundle.keySet().contains(ENABLE_VOICE_SEARCH)) {
             isVoiceSearchEnabled = transitionBundle.getBoolean(ENABLE_VOICE_SEARCH, true)
+        }
+        if (transitionBundle.keySet().contains(UNNAMED_ROAD_VISIBILITY)) {
+            isUnnamedRoadVisible = transitionBundle.getBoolean(UNNAMED_ROAD_VISIBILITY, true)
+        }
+        if (transitionBundle.keySet().contains(MAP_STYLE)) {
+            mapStyle = transitionBundle.getInt(MAP_STYLE)
         }
     }
 
@@ -802,8 +845,18 @@ class LocationPickerActivity : AppCompatActivity(),
         showCoordinatesLayout()
     }
 
+    private fun resetLocationAddress() {
+        street?.text = ""
+        city?.text = ""
+        zipCode?.text = ""
+    }
+
     private fun setLocationInfo(address: Address) {
-        street!!.text = address.getAddressLine(0)
+        if (isUnnamedRoadVisible) {
+            street!!.text = address.getAddressLine(0)
+        } else {
+            street!!.text = address.getAddressLine(0).replace(UNNAMED_ROAD, "")
+        }
         city!!.text = if (isStreetEqualsCity(address)) "" else address.locality
         zipCode!!.text = address.postalCode
         showAddressLayout()
@@ -854,23 +907,31 @@ class LocationPickerActivity : AppCompatActivity(),
     private fun retrieveLocationFrom(query: String) {
         if (searchZone != null && !searchZone!!.isEmpty()) {
             retrieveLocationFromZone(query, searchZone!!)
-        } else {
+        } else if (searchZoneRect != null) {
+            retrieveLocationFromZone(query, searchZoneRect!!)
+        } else if (isSearchZoneWithDefaultLocale) {
             retrieveLocationFromDefaultZone(query)
+        } else {
+            geocoderPresenter!!.getFromLocationName(query)
         }
     }
 
     private fun retrieveLocationWithDebounceTimeFrom(query: String) {
         if (searchZone != null && !searchZone!!.isEmpty()) {
             retrieveDebouncedLocationFromZone(query, searchZone!!, DEBOUNCE_TIME)
-        } else {
+        } else if (searchZoneRect != null) {
+            retrieveDebouncedLocationFromZone(query, searchZoneRect!!, DEBOUNCE_TIME)
+        } else if (isSearchZoneWithDefaultLocale) {
             retrieveDebouncedLocationFromDefaultZone(query, DEBOUNCE_TIME)
+        } else {
+            geocoderPresenter!!.getDebouncedFromLocationName(query, DEBOUNCE_TIME)
         }
     }
 
     private fun retrieveLocationFromDefaultZone(query: String) {
-        if (CountryLocaleRect.defaultLowerLeft != null) {
-            geocoderPresenter!!.getFromLocationName(query, CountryLocaleRect.defaultLowerLeft!!,
-                    CountryLocaleRect.defaultUpperRight!!)
+        if (DefaultCountryLocaleRect.defaultLowerLeft != null) {
+            geocoderPresenter!!.getFromLocationName(query, DefaultCountryLocaleRect.defaultLowerLeft!!,
+                    DefaultCountryLocaleRect.defaultUpperRight!!)
         } else {
             geocoderPresenter!!.getFromLocationName(query)
         }
@@ -878,18 +939,26 @@ class LocationPickerActivity : AppCompatActivity(),
 
     private fun retrieveLocationFromZone(query: String, zoneKey: String) {
         val locale = Locale(zoneKey)
-        if (CountryLocaleRect.getLowerLeftFromZone(locale) != null) {
-            geocoderPresenter!!.getFromLocationName(query, CountryLocaleRect.getLowerLeftFromZone(locale)!!,
-                    CountryLocaleRect.getUpperRightFromZone(locale)!!)
+        if (DefaultCountryLocaleRect.getLowerLeftFromZone(locale) != null) {
+            geocoderPresenter!!.getFromLocationName(query, DefaultCountryLocaleRect.getLowerLeftFromZone(locale)!!,
+                    DefaultCountryLocaleRect.getUpperRightFromZone(locale)!!)
         } else {
             geocoderPresenter!!.getFromLocationName(query)
         }
     }
 
+    private fun retrieveLocationFromZone(query: String, zoneRect: SearchZoneRect) {
+        geocoderPresenter!!.getFromLocationName(
+                query,
+                zoneRect.lowerLeft,
+                zoneRect.upperRight
+        )
+    }
+
     private fun retrieveDebouncedLocationFromDefaultZone(query: String, debounceTime: Int) {
-        if (CountryLocaleRect.defaultLowerLeft != null) {
-            geocoderPresenter!!.getDebouncedFromLocationName(query, CountryLocaleRect.defaultLowerLeft!!,
-                    CountryLocaleRect.defaultUpperRight!!, debounceTime)
+        if (DefaultCountryLocaleRect.defaultLowerLeft != null) {
+            geocoderPresenter!!.getDebouncedFromLocationName(query, DefaultCountryLocaleRect.defaultLowerLeft!!,
+                    DefaultCountryLocaleRect.defaultUpperRight!!, debounceTime)
         } else {
             geocoderPresenter!!.getDebouncedFromLocationName(query, debounceTime)
         }
@@ -897,12 +966,21 @@ class LocationPickerActivity : AppCompatActivity(),
 
     private fun retrieveDebouncedLocationFromZone(query: String, zoneKey: String, debounceTime: Int) {
         val locale = Locale(zoneKey)
-        if (CountryLocaleRect.getLowerLeftFromZone(locale) != null) {
-            geocoderPresenter!!.getDebouncedFromLocationName(query, CountryLocaleRect.getLowerLeftFromZone(locale)!!,
-                    CountryLocaleRect.getUpperRightFromZone(locale)!!, debounceTime)
+        if (DefaultCountryLocaleRect.getLowerLeftFromZone(locale) != null) {
+            geocoderPresenter!!.getDebouncedFromLocationName(query, DefaultCountryLocaleRect.getLowerLeftFromZone(locale)!!,
+                    DefaultCountryLocaleRect.getUpperRightFromZone(locale)!!, debounceTime)
         } else {
             geocoderPresenter!!.getDebouncedFromLocationName(query, debounceTime)
         }
+    }
+
+    private fun retrieveDebouncedLocationFromZone(query: String, zoneRect: SearchZoneRect, debounceTime: Int) {
+        geocoderPresenter!!.getDebouncedFromLocationName(
+                query,
+                zoneRect.lowerLeft,
+                zoneRect.upperRight,
+                debounceTime
+        )
     }
 
     private fun returnCurrentPosition() {
@@ -930,7 +1008,7 @@ class LocationPickerActivity : AppCompatActivity(),
                     returnIntent.putExtra(ZIPCODE, zipCode!!.text)
                 }
                 returnIntent.putExtra(ADDRESS, selectedAddress)
-                if (isGoogleTimeZoneEnabled) {
+                if (isGoogleTimeZoneEnabled && ::timeZone.isInitialized) {
                     returnIntent.putExtra(TIME_ZONE_ID, timeZone.id)
                     returnIntent.putExtra(TIME_ZONE_DISPLAY_NAME, timeZone.displayName)
                 }
@@ -972,6 +1050,15 @@ class LocationPickerActivity : AppCompatActivity(),
             fullAddress += ", " + address.countryName
         }
         return fullAddress
+    }
+
+    private fun setMapStyle() {
+        map?.let { googleMap ->
+            mapStyle?.let { style ->
+                val loadStyle = MapStyleOptions.loadRawResourceStyle(this, style)
+                googleMap.setMapStyle(loadStyle)
+            }
+        }
     }
 
     private fun setDefaultMapSettings() {
@@ -1090,7 +1177,9 @@ class LocationPickerActivity : AppCompatActivity(),
     class Builder {
         private var locationLatitude: Double? = null
         private var locationLongitude: Double? = null
-        private var locationSearchZone: String? = null
+        private var searchZoneLocale: String? = null
+        private var searchZoneRect: SearchZoneRect? = null
+        private var searchZoneDefaultLocale = false
         private var layoutsToHide = ""
         private var enableSatelliteView = true
         private var shouldReturnOkOnBackPressed = false
@@ -1099,6 +1188,8 @@ class LocationPickerActivity : AppCompatActivity(),
         private var googlePlacesEnabled = false
         private var googleTimeZoneEnabled = false
         private var voiceSearchEnabled = true
+        private var mapStyle: Int? = null
+        private var unnamedRoadVisible = true
 
         fun withLocation(latitude: Double, longitude: Double): Builder {
             this.locationLatitude = latitude
@@ -1114,8 +1205,18 @@ class LocationPickerActivity : AppCompatActivity(),
             return this
         }
 
-        fun withSearchZone(searchZone: String): Builder {
-            this.locationSearchZone = searchZone
+        fun withSearchZone(localeZone: String): Builder {
+            this.searchZoneLocale = localeZone
+            return this
+        }
+
+        fun withSearchZone(zoneRect: SearchZoneRect): Builder {
+            this.searchZoneRect = zoneRect
+            return this
+        }
+
+        fun withDefaultLocaleSearchZone(): Builder {
+            this.searchZoneDefaultLocale = true
             return this
         }
 
@@ -1169,6 +1270,16 @@ class LocationPickerActivity : AppCompatActivity(),
             return this
         }
 
+        fun withUnnamedRoadHidden(): Builder {
+            this.unnamedRoadVisible = false
+            return this
+        }
+
+        fun withMapStyle(@RawRes mapStyle: Int): Builder {
+            this.mapStyle = mapStyle
+            return this
+        }
+
         fun build(context: Context): Intent {
             val intent = Intent(context, LocationPickerActivity::class.java)
 
@@ -1178,9 +1289,13 @@ class LocationPickerActivity : AppCompatActivity(),
             if (locationLongitude != null) {
                 intent.putExtra(LONGITUDE, locationLongitude!!)
             }
-            if (locationSearchZone != null) {
-                intent.putExtra(SEARCH_ZONE, locationSearchZone)
+            if (searchZoneLocale != null) {
+                intent.putExtra(SEARCH_ZONE, searchZoneLocale)
             }
+            if (searchZoneLocale != null) {
+                intent.putExtra(SEARCH_ZONE_RECT, searchZoneRect)
+            }
+            intent.putExtra(SEARCH_ZONE_DEFAULT_LOCALE, searchZoneDefaultLocale)
             if (!layoutsToHide.isEmpty()) {
                 intent.putExtra(LAYOUTS_TO_HIDE, layoutsToHide)
             }
@@ -1192,9 +1307,11 @@ class LocationPickerActivity : AppCompatActivity(),
             if (geolocApiKey != null) {
                 intent.putExtra(GEOLOC_API_KEY, geolocApiKey)
             }
+            mapStyle?.let { style -> intent.putExtra(MAP_STYLE, style) }
             intent.putExtra(ENABLE_GOOGLE_PLACES, googlePlacesEnabled)
             intent.putExtra(ENABLE_GOOGLE_TIME_ZONE, googleTimeZoneEnabled)
             intent.putExtra(ENABLE_VOICE_SEARCH, voiceSearchEnabled)
+            intent.putExtra(UNNAMED_ROAD_VISIBILITY, unnamedRoadVisible)
 
             return intent
         }

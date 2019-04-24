@@ -28,14 +28,15 @@ class LekuPoi : Parcelable {
     }
 
     protected constructor(`in`: Parcel) {
-        this.id = `in`.readString()
-        this.location = `in`.readParcelable(Location::class.java.classLoader)
-        this.title = `in`.readString()
-        this.address = `in`.readString()
+        this.id = `in`.readString()!!
+        this.location = `in`.readParcelable(Location::class.java.classLoader)!!
+        this.title = `in`.readString()!!
+        this.address = `in`.readString()!!
     }
 
     override fun toString(): String {
-        return "LekuPoi{" + "id='" + id + '\''.toString() + ", location=" + location + ", title='" + title + '\''.toString() + ", address='" + address + '\''.toString() + '}'.toString()
+        return "LekuPoi{" + "id='" + id + '\''.toString() + ", location=" + location + ", title='" +
+                title + '\''.toString() + ", address='" + address + '\''.toString() + '}'.toString()
     }
 
     companion object {

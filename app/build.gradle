@@ -3,15 +3,16 @@ apply plugin: 'kotlin-android'
 apply plugin: "org.jlleitschuh.gradle.ktlint"
 
 android {
-  compileSdkVersion 27
+  compileSdkVersion 28
 
   defaultConfig {
     applicationId "com.schibsted.mappicker"
     minSdkVersion 15
-    targetSdkVersion 27
+    targetSdkVersion 28
     versionCode 1
     versionName "1.0"
     vectorDrawables.useSupportLibrary = true
+    multiDexEnabled true
   }
   buildTypes {
     release {
@@ -23,6 +24,15 @@ android {
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
   }
+  lintOptions {
+    disable 'ObsoleteLintCustomCheck'
+  }
+}
+
+configurations.all {
+	// this is a workaround for the issue:
+	// https://stackoverflow.com/questions/52521302/how-to-solve-program-type-already-present-com-google-common-util-concurrent-lis
+	exclude group: 'com.google.guava', module: 'listenablefuture'
 }
 
 detekt {
@@ -41,7 +51,9 @@ ktlint {
 
 dependencies {
   implementation fileTree(dir: 'libs', include: ['*.jar'])
-  implementation 'com.android.support:appcompat-v7:27.1.1'
+  implementation 'androidx.multidex:multidex:2.0.1'
+  implementation 'androidx.appcompat:appcompat:1.1.0-alpha02'
+  implementation "com.google.android.gms:play-services-maps:16.1.0"
   implementation project(':leku')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }

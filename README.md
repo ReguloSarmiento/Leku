@@ -10,7 +10,7 @@
 <div style="display:block; height: 168px;">
 * <i>The location Picker for Android</i> *
 
-[![Build Status](https://travis-ci.org/SchibstedSpain/Leku.svg?branch=master)](https://travis-ci.org/SchibstedSpain/Leku) [ ![Bintray](https://api.bintray.com/packages/schibstedspain/maven/leku/images/download.svg) ](https://bintray.com/schibstedspain/maven/leku/_latestVersion) [ ![Leku Trending](http://starveller.sigsev.io/api/repos/SchibstedSpain/Leku/badge) ](http://starveller.sigsev.io/SchibstedSpain/Leku)
+[![Build Status](https://travis-ci.org/SchibstedSpain/Leku.svg?branch=master)](https://travis-ci.org/SchibstedSpain/Leku) [ ![Bintray](https://api.bintray.com/packages/schibstedspain/maven/leku/images/download.svg) ](https://bintray.com/schibstedspain/maven/leku/_latestVersion)
 
 Component library for Android that uses Google Maps and returns a latitude, longitude and an address based on the location picked with the Activity provided.
 </div>
@@ -66,8 +66,8 @@ Component library for Android that uses Google Maps and returns a latitude, long
 ### Prerequisites
 
 minSdkVersion >= 15<br/>
-Google Play Services = 15.0.1<br/>
-Support Library = 27.1.1
+Google Play Services = 16.0.0<br/>
+AndroidX
 
 ### Download
 
@@ -83,16 +83,50 @@ Include the dependency in your app `build.gradle`:
 
 ```groovy
 dependencies {
-    implementation 'com.schibstedspain.android:leku:5.0.0'
+    implementation 'com.schibstedspain.android:leku:6.2.0'
 }
 ```
 
-Alternatively, if you are using a different version of Google Play Services than `15.0.1` use this instead:
+Alternatively, if you are using a different version of Google Play Services and AndroidX use this instead:
 
 ```groovy
-implementation ('com.schibstedspain.android:leku:5.0.0') {
+implementation ('com.schibstedspain.android:leku:6.2.0') {
     exclude group: 'com.google.android.gms'
-    exclude group: 'com.android.support'
+    exclude group: 'androidx.appcompat'
+}
+```
+
+Note that Places on Google Play services is deprecated and this library currently uses the Compat Places SDK, that is a transition version.
+
+
+For the <b>legacy versions of Leku</b> that does not use AndroidX and want to use the latest Places SDK, you could use it in this way:
+
+```groovy
+implementation ("com.google.android.libraries.places:places-compat:1.0.0")
+implementation ("com.schibstedspain.android:leku:5.0.0") {
+    exclude group: 'com.google.android.gms'
+    exclude module: "play-services-places"
+}
+```
+
+##### Troubleshoot
+
+If you find this issue:
+
+> Execution failed for task ':app:transformClassesWithMultidexlistForDebug'.
+> com.android.build.api.transform.TransformException: Error while generating the main dex list:
+>  Error while merging dex archives:
+>  Program type already present: com.google.common.util.concurrent.ListenableFuture
+>  Learn how to resolve the issue at https://developer.android.com/studio/build/dependencies#duplicate_classes.
+
+The workaround for this is:
+
+```groovy
+// Add this to your app build.gradle file
+configurations.all {
+	// this is a workaround for the issue:
+	// https://stackoverflow.com/questions/52521302/how-to-solve-program-type-already-present-com-google-common-util-concurrent-lis
+	exclude group: 'com.google.guava', module: 'listenablefuture'
 }
 ```
 
@@ -161,6 +195,8 @@ val locationPickerIntent = LocationPickerActivity.Builder()
     .withLocation(41.4036299, 2.1743558)
     .withGeolocApiKey("<PUT API KEY HERE>")
     .withSearchZone("es_ES")
+    .withSearchZone(SearchZoneRect(LatLng(26.525467, -18.910366), LatLng(43.906271, 5.394197)))
+    .withDefaultLocaleSearchZone()
     .shouldReturnOkOnBackPressed()
     .withStreetHidden()
     .withCityHidden()
@@ -169,6 +205,7 @@ val locationPickerIntent = LocationPickerActivity.Builder()
     .withGooglePlacesEnabled()
     .withGoogleTimeZoneEnabled()
     .withVoiceSearchHidden()
+    .withUnnamedRoadHidden()
     .build(applicationContext)
 
 startActivityForResult(locationPickerIntent, MAP_BUTTON_REQUEST_CODE)
@@ -308,6 +345,15 @@ This library uses AppCompat, so should use Theme.AppCompat or descendant in mani
 
 > `colorControlActivated` is used to colorize Street title, if not set, it uses colorAccent by default
 
+
+To customize map, use:
+
+```kotlin
+.withMapStyle(R.raw.map_style_retro)
+```
+
+> Theme creator here: https://mapstyle.withgoogle.com/
+
 ##### Layout
 
 It's possible to hide or show some of the information shown after selecting a location.
@@ -324,6 +370,24 @@ By default the search will be restricted to a zone determined by your default lo
 ```kotlin
 intent.putExtra(LocationPickerActivity.SEARCH_ZONE, "es_ES")
 ```
+
+##### Search Zone Rect
+
+If you want to force the search zone you can do it by adding this line with the lower left and upper right rect locations:
+
+```kotlin
+intent.putExtra(LocationPickerActivity.SEARCH_ZONE_RECT, SearchZoneRect(LatLng(26.525467, -18.910366), LatLng(43.906271, 5.394197)))
+```
+
+##### Default Search Zone Locale
+
+If you want to be able to search with the default device locale, you can do it by adding this line:
+
+```kotlin
+intent.putExtra(LocationPickerActivity.SEARCH_ZONE_DEFAULT_LOCALE, true)
+```
+
+Note: If you don't specify any search zone it will not search using any default search zone. It will search on all around the world.
 
 ##### Force return location on back pressed
 
@@ -355,6 +419,14 @@ Now you can hide the voice search option on the search view
 
 ```kotlin
 intent.putExtra(LocationPickerActivity.ENABLE_VOICE_SEARCH, false)
+```
+
+##### Hide/Show "Unnamed Road" on Address view
+
+Now you can hide or show the text returned by the google service with "Unnamed Road" when no road name available
+
+```kotlin
+intent.putExtra(LocationPickerActivity.UNNAMED_ROAD_VISIBILITY, false)
 ```
 
 #### Tracking
@@ -516,7 +588,7 @@ For bugs, questions and discussions please use the [Github Issues](https://githu
 License
 -------
 
-Copyright 2016-2018 Schibsted Classified Media Spain S.L.
+Copyright 2016-2019 Schibsted Classified Media Spain S.L.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

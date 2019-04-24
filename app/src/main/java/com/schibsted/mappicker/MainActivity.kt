@@ -7,7 +7,7 @@ import android.location.Address
 import android.location.Location
 import android.os.Bundle
 import android.os.StrictMode
-import android.support.v7.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatActivity
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -59,11 +59,13 @@ class MainActivity : AppCompatActivity() {
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build())
         setContentView(R.layout.activity_main)
         val mapButton = findViewById<View>(R.id.map_button)
-        mapButton.setOnClickListener { _ ->
+        mapButton.setOnClickListener {
             val locationPickerIntent = LocationPickerActivity.Builder()
                     .withLocation(41.4036299, 2.1743558)
                     //.withGeolocApiKey("<PUT API KEY HERE>")
-                    .withSearchZone("es_ES")
+                    //.withSearchZone("es_ES")
+                    //.withSearchZone(SearchZoneRect(LatLng(26.525467, -18.910366), LatLng(43.906271, 5.394197)))
+                    .withDefaultLocaleSearchZone()
                     //.shouldReturnOkOnBackPressed()
                     //.withStreetHidden()
                     //.withCityHidden()
@@ -72,6 +74,7 @@ class MainActivity : AppCompatActivity() {
                     //.withGooglePlacesEnabled()
                     .withGoogleTimeZoneEnabled()
                     //.withVoiceSearchHidden()
+                    .withUnnamedRoadHidden()
                     .build(applicationContext)
 
             //this is optional if you want to return RESULT_OK if you don't set the latitude/longitude and click back button
@@ -87,6 +90,15 @@ class MainActivity : AppCompatActivity() {
                     .withPois(lekuPois)
                     .build(applicationContext)
 
+            startActivityForResult(locationPickerIntent, MAP_POIS_BUTTON_REQUEST_CODE)
+        }
+
+        val mapStyleButton = findViewById<View>(R.id.map_button_with_style)
+        mapStyleButton.setOnClickListener {
+            val locationPickerIntent = LocationPickerActivity.Builder()
+                    .withLocation(41.4036299, 2.1743558)
+                    .withMapStyle(R.raw.map_style_retro)
+                    .build(applicationContext)
             startActivityForResult(locationPickerIntent, MAP_POIS_BUTTON_REQUEST_CODE)
         }
 
@@ -112,9 +124,13 @@ class MainActivity : AppCompatActivity() {
                     Log.d("FULL ADDRESS****", fullAddress.toString())
                 }
                 val timeZoneId = data.getStringExtra(TIME_ZONE_ID)
-                Log.d("TIME ZONE ID****", timeZoneId)
+                if (timeZoneId != null) {
+                    Log.d("TIME ZONE ID****", timeZoneId)
+                }
                 val timeZoneDisplayName = data.getStringExtra(TIME_ZONE_DISPLAY_NAME)
-                Log.d("TIME ZONE NAME****", timeZoneDisplayName)
+                if (timeZoneDisplayName != null) {
+                    Log.d("TIME ZONE NAME****", timeZoneDisplayName)
+                }
             } else if (requestCode == 2) {
                 val latitude = data.getDoubleExtra(LATITUDE, 0.0)
                 Log.d("LATITUDE****", latitude.toString())
