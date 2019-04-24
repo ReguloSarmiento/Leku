@@ -8,6 +8,8 @@ import android.content.IntentSender
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
+import android.net.ConnectivityManager
+import android.net.NetworkInfo
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.support.design.widget.FloatingActionButton
@@ -198,6 +200,14 @@ class LocationPickerActivity : AppCompatActivity(),
             }
             return locationAddress
         }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE)
+        return if (connectivityManager is ConnectivityManager) {
+            val networkInfo: NetworkInfo? = connectivityManager.activeNetworkInfo
+            networkInfo?.isConnected ?: false
+        } else false
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -860,10 +870,14 @@ class LocationPickerActivity : AppCompatActivity(),
     }
 
     private fun retrieveLocationWithDebounceTimeFrom(query: String) {
-        if (searchZone != null && !searchZone!!.isEmpty()) {
-            retrieveDebouncedLocationFromZone(query, searchZone!!, DEBOUNCE_TIME)
+        if(isNetworkAvailable()){
+            if (searchZone != null && !searchZone!!.isEmpty()) {
+                retrieveDebouncedLocationFromZone(query, searchZone!!, DEBOUNCE_TIME)
+            } else {
+                retrieveDebouncedLocationFromDefaultZone(query, DEBOUNCE_TIME)
+            }
         } else {
-            retrieveDebouncedLocationFromDefaultZone(query, DEBOUNCE_TIME)
+            Toast.makeText(this, "There's not internet connection", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -996,10 +1010,14 @@ class LocationPickerActivity : AppCompatActivity(),
     }
 
     private fun setCurrentPositionLocation() {
-        if (currentLocation != null) {
-            setNewMapMarker(LatLng(currentLocation!!.latitude, currentLocation!!.longitude))
-            geocoderPresenter!!.getInfoFromLocation(LatLng(currentLocation!!.latitude,
-                    currentLocation!!.longitude))
+        if(isNetworkAvailable()){
+            if (currentLocation != null) {
+                setNewMapMarker(LatLng(currentLocation!!.latitude, currentLocation!!.longitude))
+                geocoderPresenter!!.getInfoFromLocation(LatLng(currentLocation!!.latitude,
+                        currentLocation!!.longitude))
+            }
+        } else {
+            Toast.makeText(this, "There's not internet connection", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -31,4 +31,5 @@
 
   <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
   <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>
