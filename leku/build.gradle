@@ -8,7 +8,7 @@ def versionMajor = getVersionMajor()
 def versionMinor = getVersionMinor()
 def versionPatch = getVersionPatch()
 
-group = 'com.schibstedspain.android'
+group = 'com.github.regulosarmiento'
 version = "${versionMajor}.${versionMinor}.${versionPatch}"
 
 android {
