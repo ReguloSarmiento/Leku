@@ -36,7 +36,9 @@ class GoogleGeocoderDataSource(
                 subscriber.onNext(addresses)
                 subscriber.onComplete()
             } catch (e: JSONException) {
-                subscriber.onError(e)
+                if(!subscriber.isDisposed){
+                    subscriber.onError(e)
+                }
             }
         }
     }
@@ -54,7 +56,9 @@ class GoogleGeocoderDataSource(
                 subscriber.onNext(addresses)
                 subscriber.onComplete()
             } catch (e: JSONException) {
-                subscriber.onError(e)
+                if(!subscriber.isDisposed){
+                    subscriber.onError(e)
+                }
             }
         }
     }
@@ -71,7 +75,9 @@ class GoogleGeocoderDataSource(
                 subscriber.onNext(addresses)
                 subscriber.onComplete()
             } catch (e: JSONException) {
-                subscriber.onError(e)
+                if(!subscriber.isDisposed){
+                    subscriber.onError(e)
+                }
             }
         }
     }
