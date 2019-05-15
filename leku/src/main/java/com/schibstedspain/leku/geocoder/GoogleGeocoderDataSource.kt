@@ -4,6 +4,7 @@ import android.location.Address
 import com.google.android.gms.maps.model.LatLng
 import com.schibstedspain.leku.geocoder.api.AddressBuilder
 import com.schibstedspain.leku.geocoder.api.NetworkClient
+import com.schibstedspain.leku.geocoder.api.NetworkException
 import io.reactivex.Observable
 import java.util.Locale
 import org.json.JSONException
@@ -14,8 +15,8 @@ private const val QUERY_REQUEST_WITH_RECTANGLE =
 private const val QUERY_LAT_LONG = "https://maps.googleapis.com/maps/api/geocode/json?latlng=%1\$f,%2\$f&key=%3\$s"
 
 class GoogleGeocoderDataSource(
-    private val networkClient: NetworkClient,
-    private val addressBuilder: AddressBuilder
+        private val networkClient: NetworkClient,
+        private val addressBuilder: AddressBuilder
 ) : GeocoderInteractorDataSource {
 
     private var apiKey: String? = null
@@ -32,12 +33,18 @@ class GoogleGeocoderDataSource(
             try {
                 val result = networkClient.requestFromLocationName(String.format(Locale.ENGLISH,
                         QUERY_REQUEST, query.trim { it <= ' ' }, apiKey))
-                val addresses = addressBuilder.parseResult(result!!)
-                subscriber.onNext(addresses)
-                subscriber.onComplete()
+                if (result != null) {
+                    val addresses = addressBuilder.parseResult(result)
+                    subscriber.onNext(addresses)
+                    subscriber.onComplete()
+                }
             } catch (e: JSONException) {
-                if(!subscriber.isDisposed){
+                if (!subscriber.isDisposed) {
                     subscriber.onError(e)
+                }
+            } catch (net: NetworkException) {
+                if (!subscriber.isDisposed) {
+                    subscriber.onError(net)
                 }
             }
         }
@@ -52,12 +59,19 @@ class GoogleGeocoderDataSource(
                 val result = networkClient.requestFromLocationName(String.format(Locale.ENGLISH,
                         QUERY_REQUEST_WITH_RECTANGLE, query.trim { it <= ' ' }, apiKey, lowerLeft.latitude,
                         lowerLeft.longitude, upperRight.latitude, upperRight.longitude))
-                val addresses = addressBuilder.parseResult(result!!)
-                subscriber.onNext(addresses)
-                subscriber.onComplete()
+
+                if (result != null) {
+                    val addresses = addressBuilder.parseResult(result)
+                    subscriber.onNext(addresses)
+                    subscriber.onComplete()
+                }
             } catch (e: JSONException) {
-                if(!subscriber.isDisposed){
+                if (!subscriber.isDisposed) {
                     subscriber.onError(e)
+                }
+            } catch (net: NetworkException) {
+                if (!subscriber.isDisposed) {
+                    subscriber.onError(net)
                 }
             }
         }
@@ -71,12 +85,18 @@ class GoogleGeocoderDataSource(
             try {
                 val result = networkClient.requestFromLocationName(String.format(Locale.ENGLISH,
                         QUERY_LAT_LONG, latitude, longitude, apiKey))
-                val addresses = addressBuilder.parseResult(result!!)
-                subscriber.onNext(addresses)
-                subscriber.onComplete()
+                if(result != null){
+                    val addresses = addressBuilder.parseResult(result)
+                    subscriber.onNext(addresses)
+                    subscriber.onComplete()
+                }
             } catch (e: JSONException) {
-                if(!subscriber.isDisposed){
+                if (!subscriber.isDisposed) {
                     subscriber.onError(e)
+                }
+            } catch (net: NetworkException) {
+                if (!subscriber.isDisposed) {
+                    subscriber.onError(net)
                 }
             }
         }
