@@ -1,7 +1,6 @@
 package com.schibstedspain.leku.geocoder
 
 import android.location.Address
-import android.util.Log
 import com.google.android.gms.maps.model.LatLng
 import com.schibstedspain.leku.geocoder.api.AddressBuilder
 import com.schibstedspain.leku.geocoder.api.NetworkClient
@@ -35,7 +34,6 @@ class GoogleGeocoderDataSource(
                 val result = networkClient.requestFromLocationName(String.format(Locale.ENGLISH,
                         QUERY_REQUEST, query.trim { it <= ' ' }, apiKey))
                 if (result != null) {
-                    Log.d("GEOCODER_DATA_SOURCE", "getFromLocationName: got result")
                     val addresses = addressBuilder.parseResult(result)
                     subscriber.onNext(addresses)
                     subscriber.onComplete()
@@ -45,7 +43,6 @@ class GoogleGeocoderDataSource(
                     subscriber.onError(e)
                 }
             } catch (net: NetworkException) {
-                Log.d("GEOCODER_DATA_SOURCE", "NetworkException: catch it")
                 if (!subscriber.isDisposed) {
                     subscriber.onError(net)
                 }
@@ -64,7 +61,6 @@ class GoogleGeocoderDataSource(
                         lowerLeft.longitude, upperRight.latitude, upperRight.longitude))
 
                 if (result != null) {
-                    Log.d("GEOCODER_DATA_SOURCE", "getFromLocationName: got result")
                     val addresses = addressBuilder.parseResult(result)
                     subscriber.onNext(addresses)
                     subscriber.onComplete()
@@ -74,7 +70,6 @@ class GoogleGeocoderDataSource(
                     subscriber.onError(e)
                 }
             } catch (net: NetworkException) {
-                Log.d("GEOCODER_DATA_SOURCE", "NetworkException: catch it")
                 if (!subscriber.isDisposed) {
                     subscriber.onError(net)
                 }
@@ -91,7 +86,6 @@ class GoogleGeocoderDataSource(
                 val result = networkClient.requestFromLocationName(String.format(Locale.ENGLISH,
                         QUERY_LAT_LONG, latitude, longitude, apiKey))
                 if(result != null){
-                    Log.d("GEOCODER_DATA_SOURCE", "getFromLocationName: got result")
                     val addresses = addressBuilder.parseResult(result)
                     subscriber.onNext(addresses)
                     subscriber.onComplete()
@@ -101,7 +95,6 @@ class GoogleGeocoderDataSource(
                     subscriber.onError(e)
                 }
             } catch (net: NetworkException) {
-                Log.d("GEOCODER_DATA_SOURCE", "NetworkException: catch it")
                 if (!subscriber.isDisposed) {
                     subscriber.onError(net)
                 }

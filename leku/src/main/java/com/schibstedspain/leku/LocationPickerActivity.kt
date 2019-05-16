@@ -870,15 +870,11 @@ class LocationPickerActivity : AppCompatActivity(),
     }
 
     private fun retrieveLocationWithDebounceTimeFrom(query: String) {
-    //    if(isNetworkAvailable()){
-            if (searchZone != null && !searchZone!!.isEmpty()) {
-                retrieveDebouncedLocationFromZone(query, searchZone!!, DEBOUNCE_TIME)
-            } else {
-                retrieveDebouncedLocationFromDefaultZone(query, DEBOUNCE_TIME)
-            }
-     //   } else {
-     //       Toast.makeText(this, "There's not internet connection", Toast.LENGTH_LONG).show()
-      //  }
+        if (searchZone != null && !searchZone!!.isEmpty()) {
+            retrieveDebouncedLocationFromZone(query, searchZone!!, DEBOUNCE_TIME)
+        } else {
+            retrieveDebouncedLocationFromDefaultZone(query, DEBOUNCE_TIME)
+        }
     }
 
     private fun retrieveLocationFromDefaultZone(query: String) {
@@ -1010,15 +1006,11 @@ class LocationPickerActivity : AppCompatActivity(),
     }
 
     private fun setCurrentPositionLocation() {
-       // if(isNetworkAvailable()){
-            if (currentLocation != null) {
-                setNewMapMarker(LatLng(currentLocation!!.latitude, currentLocation!!.longitude))
-                geocoderPresenter!!.getInfoFromLocation(LatLng(currentLocation!!.latitude,
-                        currentLocation!!.longitude))
-            }
-      //  } else {
-       //     Toast.makeText(this, "There's not internet connection", Toast.LENGTH_LONG).show()
-      //  }
+        if (currentLocation != null) {
+            setNewMapMarker(LatLng(currentLocation!!.latitude, currentLocation!!.longitude))
+            geocoderPresenter!!.getInfoFromLocation(LatLng(currentLocation!!.latitude,
+                    currentLocation!!.longitude))
+        }
     }
 
     private fun setPois() {
